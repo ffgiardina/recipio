@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recipio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; color: #111827; line-height: 1.6; }
+    .page { max-width: 680px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: 6px; }
+    .description { color: #6b7280; font-size: 1rem; margin-bottom: 12px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .tag { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; color: #15803d; font-weight: 500; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .meta-chip { background: #f0fdf4; border-radius: 999px; padding: 3px 12px; font-size: 0.8rem; color: #15803d; font-weight: 500; }
+    h2 { font-size: 1.2rem; font-weight: 600; margin: 32px 0 12px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+    .ingredient { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; gap: 8px; }
+    .ingredient-name { flex: 1; text-transform: capitalize; }
+    .ingredient-amount { color: #6b7280; font-size: 0.9rem; }
+    .step { display: flex; gap: 14px; margin-bottom: 20px; align-items: flex-start; }
+    .step-num { width: 28px; height: 28px; border-radius: 50%; background: #16a34a; color: #fff; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .step-text { flex: 1; color: #374151; }
+    .notes { background: #fefce8; border: 1px solid #fef08a; border-radius: 12px; padding: 16px; color: #713f12; font-size: 0.95rem; margin-top: 8px; }
+    .error { text-align: center; padding: 80px 20px; color: #6b7280; }
+    .error h2 { border: none; color: #6b7280; font-size: 1.1rem; }
+    .logo { font-size: 0.85rem; color: #9ca3af; margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+<div class="page" id="root">
+  <div class="error"><h2>Loading…</h2></div>
+</div>
+<script>
+  function decodeBase64(str) {
+    return decodeURIComponent(
+      atob(str).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+    );
+  }
+
+  function formatAmount(amount, unit) {
+    if (amount == null && !unit) return '';
+    if (amount == null) return unit;
+    return unit ? `${amount} ${unit}` : String(amount);
+  }
+
+  function render(recipe) {
+    const meta = [
+      recipe.servings ? `${recipe.servings} servings` : null,
+      recipe.prepTimeMinutes ? `Prep ${recipe.prepTimeMinutes} min` : null,
+      recipe.cookTimeMinutes ? `Cook ${recipe.cookTimeMinutes} min` : null,
+    ].filter(Boolean);
+
+    const tagsHtml = (recipe.recipeType || []).length > 0
+      ? `<div class="tags">${recipe.recipeType.map(t => `<span class="tag">${t}</span>`).join('')}</div>`
+      : '';
+
+    const metaHtml = meta.length > 0
+      ? `<div class="meta">${meta.map(m => `<span class="meta-chip">${m}</span>`).join('')}</div>`
+      : '';
+
+    const ingredientsHtml = recipe.ingredients.length > 0 ? `
+      <h2>Ingredients</h2>
+      ${recipe.ingredients.map(ing => `
+        <div class="ingredient">
+          <span class="ingredient-name">${ing.name}</span>
+          <span class="ingredient-amount">${formatAmount(ing.amount, ing.unit)}</span>
+        </div>
+      `).join('')}
+    ` : '';
+
+    const stepsHtml = recipe.steps.length > 0 ? `
+      <h2>Instructions</h2>
+      ${recipe.steps.map(s => `
+        <div class="step">
+          <div class="step-num">${s.stepNumber}</div>
+          <div class="step-text">${s.text}</div>
+        </div>
+      `).join('')}
+    ` : '';
+
+    const notesHtml = recipe.notes
+      ? `<h2>Notes</h2><div class="notes">${recipe.notes}</div>`
+      : '';
+
+    document.getElementById('root').innerHTML = `
+      <div class="logo">Recipio</div>
+      <h1>${recipe.title}</h1>
+      ${recipe.description ? `<p class="description">${recipe.description}</p>` : ''}
+      ${tagsHtml}
+      ${metaHtml}
+      ${ingredientsHtml}
+      ${stepsHtml}
+      ${notesHtml}
+    `;
+    document.title = `${recipe.title} — Recipio`;
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('data');
+    if (!raw) throw new Error('no data');
+    const payload = JSON.parse(decodeBase64(decodeURIComponent(raw)));
+    if (payload.v !== 1 || !payload.recipes || !payload.recipes[0]) throw new Error('bad format');
+    render(payload.recipes[0]);
+  } catch {
+    document.getElementById('root').innerHTML = `
+      <div class="error">
+        <h2>No recipe found</h2>
+        <p>Open this link from the Recipio app on your phone.</p>
+      </div>
+    `;
+  }
+</script>
+</body>
+</html>
